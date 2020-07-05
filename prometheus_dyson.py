@@ -44,7 +44,7 @@ class Metrics():
     # Operational State
     # Ignoring: tilt (known values OK), standby_monitoring.
     self.fan_mode = prometheus_client.Enum(
-        'fan_mode', 'Current mode of the fan', labels, states=['AUTO', 'FAN'])
+        'fan_mode', 'Current mode of the fan', labels, states=['AUTO', 'FAN', 'OFF'])
     self.fan_state = prometheus_client.Enum(
         'fan_state', 'Current running state of the fan', labels, states=['FAN', 'OFF'])
     self.fan_speed = prometheus_client.Gauge(
@@ -99,6 +99,18 @@ class Metrics():
       self.heat_mode.labels(name=name, serial=serial).state(message.heat_mode)
       self.heat_state.labels(name=name, serial=serial).state(message.heat_state)
       self.heat_target.labels(name=name, serial=serial).set(heat_target)
+      self.quality_target.labels(name=name, serial=serial).set(message.quality_target)
+      self.filter_life.labels(name=name, serial=serial).set(message.filter_life)
+    elif isinstance(message, dyson_pure_state.DysonPureCoolState):
+      self.fan_mode.labels(name=name, serial=serial).state(message.fan_mode)
+      self.fan_state.labels(name=name, serial=serial).state(message.fan_state)
+
+      speed = message.speed
+      if speed == 'AUTO':
+        speed = -1
+      self.fan_speed.labels(name=name, serial=serial).set(speed)
+
+      self.oscillation.labels(name=name, serial=serial).state(message.oscillation)
       self.quality_target.labels(name=name, serial=serial).set(message.quality_target)
       self.filter_life.labels(name=name, serial=serial).set(message.filter_life)
     else:
