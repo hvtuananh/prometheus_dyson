@@ -16,9 +16,9 @@ import time
 
 from typing import Callable
 
-from libpurecool import dyson
-from libpurecool import dyson_pure_state
-import prometheus_client
+from libpurecool import dyson            # type: ignore[import]
+from libpurecool import dyson_pure_state # type: ignore[import]
+import prometheus_client                 # type: ignore[import]
 
 # Rationale:
 #    too-many-instance-attributes: refers to Metrics. This is an intentional design choice.
@@ -35,34 +35,37 @@ class Metrics():
     labels = ['name', 'serial']
 
     # Environmental Sensors
-    self.humidity = prometheus_client.Gauge('humidity', 'Relative humidity (percentage)', labels)
+    self.humidity = prometheus_client.Gauge(
+        'dyson_humidity_percent', 'Relative humidity (percentage)', labels)
     self.temperature = prometheus_client.Gauge(
-        'temperature', 'Ambient temperature (celsius)', labels)
-    self.voc = prometheus_client.Gauge('voc', 'Level of Volatile organic compounds', labels)
-    self.dust = prometheus_client.Gauge('dust', 'Level of Dust', labels)
+        'dyson_temperature_celsius', 'Ambient temperature (celsius)', labels)
+    self.voc = prometheus_client.Gauge(
+        'dyson_volatile_organic_compounds_units', 'Level of Volatile organic compounds', labels)
+    self.dust = prometheus_client.Gauge(
+        'dyson_dust_units', 'Level of Dust', labels)
 
     # Operational State
     # Ignoring: tilt (known values OK), standby_monitoring.
     self.fan_mode = prometheus_client.Enum(
-        'fan_mode', 'Current mode of the fan', labels, states=['AUTO', 'FAN', 'OFF'])
+        'dyson_fan_mode', 'Current mode of the fan', labels, states=['AUTO', 'FAN', 'OFF'])
     self.fan_state = prometheus_client.Enum(
-        'fan_state', 'Current running state of the fan', labels, states=['FAN', 'OFF'])
+        'dyson_fan_state', 'Current running state of the fan', labels, states=['FAN', 'OFF'])
     self.fan_speed = prometheus_client.Gauge(
-        'fan_speed', 'Current speed of fan (-1 = AUTO)', labels)
+        'dyson_fan_speed_units', 'Current speed of fan (-1 = AUTO)', labels)
     self.oscillation = prometheus_client.Enum(
-        'oscillation', 'Current oscillation mode', labels, states=['ON', 'OFF'])
+        'dyson_oscillation_mode', 'Current oscillation mode', labels, states=['ON', 'OFF'])
     self.focus_mode = prometheus_client.Enum(
-        'focus_mode', 'Current focus mode', labels, states=['ON', 'OFF'])
+        'dyson_focus_mode', 'Current focus mode', labels, states=['ON', 'OFF'])
     self.heat_mode = prometheus_client.Enum(
-        'heat_mode', 'Current heat mode', labels, states=['HEAT', 'OFF'])
+        'dyson_heat_mode', 'Current heat mode', labels, states=['HEAT', 'OFF'])
     self.heat_state = prometheus_client.Enum(
-        'heat_state', 'Current heat state', labels, states=['HEAT', 'OFF'])
+        'dyson_heat_state', 'Current heat state', labels, states=['HEAT', 'OFF'])
     self.heat_target = prometheus_client.Gauge(
-        'heat_target', 'Heat target temperature (celsius)', labels)
+        'dyson_heat_target_celsius', 'Heat target temperature (celsius)', labels)
     self.quality_target = prometheus_client.Gauge(
-        'quality_target', 'Quality target for fan', labels)
+        'dyson_quality_target_units', 'Quality target for fan', labels)
     self.filter_life = prometheus_client.Gauge(
-        'filter_life', 'Remaining filter life (hours)', labels)
+        'dyson_filter_life_seconds', 'Remaining filter life (seconds)', labels)
 
   def update(self, name: str, serial: str, message: object) -> None:
     """Receives a sensor or device state update and updates Prometheus metrics.
@@ -75,7 +78,7 @@ class Metrics():
     if not name or not serial:
       logging.error('Ignoring update with name=%s, serial=%s', name, serial)
 
-    logging.info('Received update for %s (serial=%s): %s', name, serial, message)
+    logging.debug('Received update for %s (serial=%s): %s', name, serial, message)
 
     if isinstance(message, dyson_pure_state.DysonEnvironmentalSensorState):
       self.humidity.labels(name=name, serial=serial).set(message.humidity)
@@ -93,6 +96,9 @@ class Metrics():
 
       # Convert from Decicelsius to Kelvin.
       heat_target = int(message.heat_target) / 10 - 273.2
+
+      # Convert filter_life from hours to seconds
+      filter_life = int(message.filter_life) * 60 * 60
 
       self.oscillation.labels(name=name, serial=serial).state(message.oscillation)
       self.focus_mode.labels(name=name, serial=serial).state(message.focus_mode)
@@ -173,7 +179,7 @@ def _sleep_forever() -> None:
     except KeyboardInterrupt:
       break
 
-def _read_config(filename) -> DysonLinkCredentials:
+def _read_config(filename):
   """Reads configuration file. Returns DysonLinkCredentials or None on error."""
   config = configparser.ConfigParser()
 
@@ -205,7 +211,7 @@ def main(argv):
   logging.basicConfig(
       format='%(asctime)s %(levelname)10s %(message)s',
       datefmt='%Y/%m/%d %H:%M:%S',
-      level=logging.DEBUG)
+      level=logging.INFO)
 
   logging.info('Starting up on port=%s', args.port)
 
