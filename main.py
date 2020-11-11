@@ -106,7 +106,7 @@ class Metrics():
       self.heat_state.labels(name=name, serial=serial).state(message.heat_state)
       self.heat_target.labels(name=name, serial=serial).set(heat_target)
       self.quality_target.labels(name=name, serial=serial).set(message.quality_target)
-      self.filter_life.labels(name=name, serial=serial).set(message.filter_life)
+      self.filter_life.labels(name=name, serial=serial).set(filter_life)
     elif isinstance(message, dyson_pure_state.DysonPureCoolState):
       self.fan_mode.labels(name=name, serial=serial).state(message.fan_mode)
       self.fan_state.labels(name=name, serial=serial).state(message.fan_state)
@@ -116,9 +116,12 @@ class Metrics():
         speed = -1
       self.fan_speed.labels(name=name, serial=serial).set(speed)
 
+      # Convert filter_life from hours to seconds
+      filter_life = int(message.filter_life) * 60 * 60
+
       self.oscillation.labels(name=name, serial=serial).state(message.oscillation)
       self.quality_target.labels(name=name, serial=serial).set(message.quality_target)
-      self.filter_life.labels(name=name, serial=serial).set(message.filter_life)
+      self.filter_life.labels(name=name, serial=serial).set(filter_life)
     else:
       logging.warning('Received unknown update from "%s" (serial=%s): %s; ignoring',
                       name, serial, type(message))
